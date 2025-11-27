@@ -15,11 +15,10 @@ import { Layer } from '../container/Layer';
 import {
   CartesianLabelListContextProvider,
   CartesianLabelListEntry,
-  LabelListFromLabelProp,
   ImplicitLabelListType,
+  LabelListFromLabelProp,
 } from '../component/LabelList';
 import { findAllByType } from '../util/ReactUtils';
-import { Global } from '../util/Global';
 import { Curve, CurveType, Props as CurveProps } from '../shape/Curve';
 import type { ErrorBarDataItem, ErrorBarDirection } from './ErrorBar';
 import { Cell } from '../component/Cell';
@@ -74,6 +73,7 @@ import { WithIdRequired, WithoutId } from '../util/useUniqueId';
 import { GraphicalItemId } from '../state/graphicalItemsSlice';
 import { ZIndexable, ZIndexLayer } from '../zIndex/ZIndexLayer';
 import { DefaultZIndexes } from '../zIndex/DefaultZIndexes';
+import { propsAreEqual } from '../util/propsAreEqual';
 
 interface ScatterPointNode {
   x?: number | string;
@@ -152,7 +152,7 @@ interface ScatterInternalProps extends ZIndexable {
   hide: boolean;
   label?: ImplicitLabelListType;
 
-  isAnimationActive: boolean;
+  isAnimationActive: boolean | 'auto';
   animationBegin: number;
   animationDuration: AnimationDuration;
   animationEasing: AnimationTiming;
@@ -167,29 +167,75 @@ interface ScatterInternalProps extends ZIndexable {
  */
 interface ScatterProps extends ZIndexable {
   data?: any[];
+  /**
+   * @defaultValue 0
+   */
   xAxisId?: AxisId;
-  yAxisId?: string | number;
-  zAxisId?: string | number;
+  /**
+   * @defaultValue 0
+   */
+  yAxisId?: AxisId;
+  /**
+   * @defaultValue 0
+   */
+  zAxisId?: AxisId;
 
   dataKey?: DataKey<any>;
 
+  /**
+   * @defaultValue false
+   */
   line?: ReactElement<SVGElement> | ((props: any) => ReactElement<SVGElement>) | CurveProps | boolean;
+  /**
+   * @defaultValue joint
+   */
   lineType?: 'fitting' | 'joint';
+  /**
+   * @defaultValue linear
+   */
   lineJointType?: CurveType;
+  /**
+   * @defaultValue circle
+   */
   legendType?: LegendType;
   tooltipType?: TooltipType;
   className?: string;
   name?: string;
 
   activeShape?: ScatterCustomizedShape;
+  /**
+   * @defaultValue circle
+   */
   shape?: ScatterCustomizedShape;
+  /**
+   * @defaultValue false
+   */
   hide?: boolean;
+  /**
+   * @defaultValue false
+   */
   label?: ImplicitLabelListType;
 
-  isAnimationActive?: boolean;
+  /**
+   * @defaultValue auto
+   */
+  isAnimationActive?: boolean | 'auto';
+  /**
+   * @defaultValue 0
+   */
   animationBegin?: number;
+  /**
+   * @defaultValue 400
+   */
   animationDuration?: AnimationDuration;
+  /**
+   * @defaultValue linear
+   */
   animationEasing?: AnimationTiming;
+  /**
+   * @defaultValue 600
+   */
+  zIndex?: number;
 }
 
 /**
@@ -214,6 +260,48 @@ const computeLegendPayloadFromScatterProps = (props: Props): ReadonlyArray<Legen
     },
   ];
 };
+
+type InputRequiredToComputeTooltipEntrySettings = {
+  dataKey?: DataKey<any> | undefined;
+  points?: ReadonlyArray<ScatterPointItem>;
+  stroke?: string;
+  strokeWidth?: number | string;
+  fill?: string;
+  name?: string;
+  hide?: boolean;
+  tooltipType?: TooltipType;
+};
+
+const SetScatterTooltipEntrySettings = React.memo(
+  ({
+    dataKey,
+    points,
+    stroke,
+    strokeWidth,
+    fill,
+    name,
+    hide,
+    tooltipType,
+  }: InputRequiredToComputeTooltipEntrySettings) => {
+    const tooltipEntrySettings: TooltipPayloadConfiguration = {
+      dataDefinedOnItem: points?.map((p: ScatterPointItem) => p.tooltipPayload),
+      positions: points?.map((p: ScatterPointItem) => p.tooltipPosition),
+      settings: {
+        stroke,
+        strokeWidth,
+        fill,
+        nameKey: undefined,
+        dataKey,
+        name: getTooltipNameProp(name, dataKey),
+        hide,
+        type: tooltipType,
+        color: fill,
+        unit: '', // why doesn't Scatter support unit?
+      },
+    };
+    return <SetTooltipEntrySettings tooltipEntrySettings={tooltipEntrySettings} />;
+  },
+);
 
 type ScatterSymbolsProps = {
   points: ReadonlyArray<ScatterPointItem>;
@@ -464,37 +552,6 @@ function SymbolsWithAnimation({
   );
 }
 
-type InputRequiredToComputeTooltipEntrySettings = {
-  dataKey?: DataKey<any> | undefined;
-  points?: ReadonlyArray<ScatterPointItem>;
-  stroke?: string;
-  strokeWidth?: number | string;
-  fill?: string;
-  name?: string;
-  hide?: boolean;
-  tooltipType?: TooltipType;
-};
-
-function getTooltipEntrySettings(props: InputRequiredToComputeTooltipEntrySettings): TooltipPayloadConfiguration {
-  const { dataKey, points, stroke, strokeWidth, fill, name, hide, tooltipType } = props;
-  return {
-    dataDefinedOnItem: points?.map((p: ScatterPointItem) => p.tooltipPayload),
-    positions: points?.map((p: ScatterPointItem) => p.tooltipPosition),
-    settings: {
-      stroke,
-      strokeWidth,
-      fill,
-      nameKey: undefined,
-      dataKey,
-      name: getTooltipNameProp(name, dataKey),
-      hide,
-      type: tooltipType,
-      color: fill,
-      unit: '', // why doesn't Scatter support unit?
-    },
-  };
-}
-
 export function computeScatterPoints({
   displayedData,
   xAxis,
@@ -644,18 +701,19 @@ function ScatterWithId(props: InternalProps) {
   );
 }
 
-const defaultScatterProps = {
+export const defaultScatterProps = {
   xAxisId: 0,
   yAxisId: 0,
   zAxisId: 0,
+  label: false,
+  line: false,
   legendType: 'circle',
   lineType: 'joint',
   lineJointType: 'linear',
-  data: [] as any[],
   shape: 'circle',
   hide: false,
 
-  isAnimationActive: !Global.isSsr,
+  isAnimationActive: 'auto',
   animationBegin: 0,
   animationDuration: 400,
   animationEasing: 'linear',
@@ -694,7 +752,16 @@ function ScatterImpl(props: WithIdRequired<Props>) {
   }
   return (
     <>
-      <SetTooltipEntrySettings fn={getTooltipEntrySettings} args={{ ...props, points }} />
+      <SetScatterTooltipEntrySettings
+        dataKey={props.dataKey}
+        points={points}
+        stroke={props.stroke}
+        strokeWidth={props.strokeWidth}
+        fill={props.fill}
+        name={props.name}
+        hide={props.hide}
+        tooltipType={props.tooltipType}
+      />
       <ScatterWithId
         {...everythingElse}
         xAxisId={xAxisId}
@@ -744,6 +811,6 @@ function ScatterFn(outsideProps: Props) {
   );
 }
 
-export const Scatter: ComponentType<Props> = React.memo(ScatterFn);
+export const Scatter: ComponentType<Props> = React.memo(ScatterFn, propsAreEqual);
 
 Scatter.displayName = 'Scatter';

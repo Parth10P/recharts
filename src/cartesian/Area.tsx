@@ -1,11 +1,21 @@
 import * as React from 'react';
-import { ComponentType, MutableRefObject, PureComponent, ReactNode, useCallback, useRef, useState } from 'react';
+import {
+  ComponentType,
+  MutableRefObject,
+  PureComponent,
+  ReactNode,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { clsx } from 'clsx';
 import { Curve, CurveType, Props as CurveProps } from '../shape/Curve';
 import { Layer } from '../container/Layer';
 import {
   CartesianLabelListContextProvider,
   CartesianLabelListEntry,
+  ImplicitLabelListType,
   LabelListFromLabelProp,
 } from '../component/LabelList';
 import { Dots, DotsDotProps } from '../component/Dots';
@@ -59,6 +69,7 @@ import { getRadiusAndStrokeWidthFromDot } from '../util/getRadiusAndStrokeWidthF
 import { svgPropertiesAndEvents } from '../util/svgPropertiesAndEvents';
 import { ZIndexable, ZIndexLayer } from '../zIndex/ZIndexLayer';
 import { DefaultZIndexes } from '../zIndex/DefaultZIndexes';
+import { propsAreEqual } from '../util/propsAreEqual';
 
 export type BaseValue = number | 'dataMin' | 'dataMax';
 
@@ -87,7 +98,7 @@ interface InternalAreaProps extends ZIndexable {
   id: string;
   isAnimationActive: boolean;
   isRange?: boolean;
-  label?: any;
+  label?: ImplicitLabelListType;
   left: number;
 
   legendType: LegendType;
@@ -135,7 +146,7 @@ interface AreaProps extends ZIndexable {
 
   isAnimationActive?: boolean | 'auto';
   isRange?: boolean;
-  label?: any;
+  label?: ImplicitLabelListType;
   legendType?: LegendType;
 
   name?: string | number;
@@ -182,25 +193,40 @@ const computeLegendPayloadFromAreaData = (props: Props): ReadonlyArray<LegendPay
   ];
 };
 
-function getTooltipEntrySettings(props: Props): TooltipPayloadConfiguration {
-  const { dataKey, data, stroke, strokeWidth, fill, name, hide, unit } = props;
-  return {
-    dataDefinedOnItem: data,
-    positions: undefined,
-    settings: {
-      stroke,
-      strokeWidth,
-      fill,
-      dataKey,
-      nameKey: undefined,
-      name: getTooltipNameProp(name, dataKey),
-      hide,
-      type: props.tooltipType,
-      color: getLegendItemColor(stroke, fill),
-      unit,
-    },
-  };
-}
+const SetAreaTooltipEntrySettings = React.memo(
+  ({
+    dataKey,
+    data,
+    stroke,
+    strokeWidth,
+    fill,
+    name,
+    hide,
+    unit,
+    tooltipType,
+  }: Pick<
+    Props,
+    'dataKey' | 'data' | 'stroke' | 'strokeWidth' | 'fill' | 'name' | 'hide' | 'unit' | 'tooltipType'
+  >) => {
+    const tooltipEntrySettings: TooltipPayloadConfiguration = {
+      dataDefinedOnItem: data,
+      positions: undefined,
+      settings: {
+        stroke,
+        strokeWidth,
+        fill,
+        dataKey,
+        nameKey: undefined,
+        name: getTooltipNameProp(name, dataKey),
+        hide,
+        type: tooltipType,
+        color: getLegendItemColor(stroke, fill),
+        unit,
+      },
+    };
+    return <SetTooltipEntrySettings tooltipEntrySettings={tooltipEntrySettings} />;
+  },
+);
 
 function AreaDotsWrapper({
   clipPathId,
@@ -447,7 +473,8 @@ function AreaWithAnimation({
     onAnimationStart,
     onAnimationEnd,
   } = props;
-  const animationId = useAnimationId(props, 'recharts-area-');
+  const animationInput = useMemo(() => ({ points, baseLine }), [points, baseLine]);
+  const animationId = useAnimationId(animationInput, 'recharts-area-');
   const layout = useCartesianChartLayout();
 
   const [isAnimating, setIsAnimating] = useState(false);
@@ -632,6 +659,7 @@ class AreaWithState extends PureComponent<InternalProps> {
     const { r, strokeWidth } = getRadiusAndStrokeWidthFromDot(dot);
     const clipDot = isClipDot(dot);
     const dotSize = r * 2 + strokeWidth;
+    const activePointsClipPath = needClip ? `url(#clipPath-${clipDot ? '' : 'dots-'}${clipPathId})` : undefined;
 
     return (
       <ZIndexLayer zIndex={zIndex}>
@@ -658,6 +686,7 @@ class AreaWithState extends PureComponent<InternalProps> {
           mainColor={getLegendItemColor(this.props.stroke, this.props.fill)}
           itemDataKey={this.props.dataKey}
           activeDot={this.props.activeDot}
+          clipPath={activePointsClipPath}
         />
         {this.props.isRange && Array.isArray(baseLine) && (
           <ActivePoints
@@ -665,6 +694,7 @@ class AreaWithState extends PureComponent<InternalProps> {
             mainColor={getLegendItemColor(this.props.stroke, this.props.fill)}
             itemDataKey={this.props.dataKey}
             activeDot={this.props.activeDot}
+            clipPath={activePointsClipPath}
           />
         )}
       </ZIndexLayer>
@@ -909,7 +939,17 @@ function AreaFn(outsideProps: Props) {
       {id => (
         <>
           <SetLegendPayload legendPayload={computeLegendPayloadFromAreaData(props)} />
-          <SetTooltipEntrySettings fn={getTooltipEntrySettings} args={props} />
+          <SetAreaTooltipEntrySettings
+            dataKey={props.dataKey}
+            data={props.data}
+            stroke={props.stroke}
+            strokeWidth={props.strokeWidth}
+            fill={props.fill}
+            name={props.name}
+            hide={props.hide}
+            unit={props.unit}
+            tooltipType={props.tooltipType}
+          />
           <SetCartesianGraphicalItem
             type="area"
             id={id}
@@ -932,5 +972,5 @@ function AreaFn(outsideProps: Props) {
   );
 }
 
-export const Area: ComponentType<Props> = React.memo(AreaFn);
+export const Area: ComponentType<Props> = React.memo(AreaFn, propsAreEqual);
 Area.displayName = 'Area';

@@ -7,6 +7,7 @@ import { RouteComponentProps, withRouter } from '../routes/withRouter.tsx';
 import { ActiveIndex } from '../components/GuideView/ActiveIndex';
 import { ChartSizing } from '../components/GuideView/ChartSizing';
 import { DomainAndTicks } from '../components/GuideView/DomainAndTicks';
+import { Performance } from '../components/GuideView/Performance';
 
 const guideMap: Record<string, ComponentType<{ locale: SupportedLocale }>> = {
   installation: Installation,
@@ -16,6 +17,7 @@ const guideMap: Record<string, ComponentType<{ locale: SupportedLocale }>> = {
   domainAndTicks: DomainAndTicks,
   sizes: ChartSizing,
   zIndex: ZIndex,
+  performance: Performance,
 };
 
 export const allGuides = Object.keys(guideMap);
@@ -40,7 +42,7 @@ class GuideViewImpl extends PureComponent<RouteComponentProps> {
       <div className="page page-guide">
         <Helmet title={title} />
         <div className="content">
-          <Guide locale={locale} page={page} />
+          <Guide locale={locale} page={page} key={page} />
         </div>
       </div>
     );

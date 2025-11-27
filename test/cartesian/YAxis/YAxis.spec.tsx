@@ -1,21 +1,21 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { fireEvent, render } from '@testing-library/react';
-import { describe, test, it, expect, vi } from 'vitest';
+import { describe, expect, it, test, vi } from 'vitest';
 import {
-  AreaChart,
   Area,
-  BarChart,
+  AreaChart,
   Bar,
-  LineChart,
-  Line,
+  BarChart,
   CartesianGrid,
-  Tooltip,
-  YAxis,
-  ReferenceDot,
-  ReferenceArea,
-  ReferenceLine,
-  XAxis,
   ComposedChart,
+  Line,
+  LineChart,
+  ReferenceArea,
+  ReferenceDot,
+  ReferenceLine,
+  Tooltip,
+  XAxis,
+  YAxis,
   YAxisProps,
 } from '../../../src';
 import { AxisDomain, CategoricalDomain, NumberDomain, StackOffsetType } from '../../../src/util/types';
@@ -34,7 +34,7 @@ import { useIsPanorama } from '../../../src/context/PanoramaContext';
 import { mockGetBoundingClientRect } from '../../helper/mockGetBoundingClientRect';
 import { getCalculatedYAxisWidth } from '../../../src/util/YAxisUtils';
 import { expectLastCalledWith } from '../../helper/expectLastCalledWith';
-import { createSelectorTestCase } from '../../helper/createSelectorTestCase';
+import { createSelectorTestCase, rechartsTestRender } from '../../helper/createSelectorTestCase';
 import { assertNotNull } from '../../helper/assertNotNull';
 
 describe('<YAxis />', () => {
@@ -1026,7 +1026,7 @@ describe('<YAxis />', () => {
         spy({ foo, bar });
         return null;
       };
-      const { rerender } = render(
+      const { rerender } = rechartsTestRender(
         <BarChart width={100} height={100}>
           <YAxis yAxisId="foo" scale="log" type="number" />
           <Comp />
@@ -1186,6 +1186,42 @@ describe('<YAxis />', () => {
         foo: implicitYAxis,
         bar: implicitYAxis,
       });
+    });
+
+    it('should remove old ID configuration when the ID changes', () => {
+      const IDChangingComponent = ({ children }: { children: ReactNode }) => {
+        const [id, setId] = React.useState('1');
+        const onClick = () => setId('2');
+        return (
+          <>
+            <button type="button" className="pushbutton" onClick={onClick}>
+              Change ID
+            </button>
+            <BarChart width={100} height={100}>
+              <YAxis yAxisId={id} scale="log" type="number" />
+              {children}
+            </BarChart>
+          </>
+        );
+      };
+      const renderTestCase = createSelectorTestCase(IDChangingComponent);
+
+      const { spy, container } = renderTestCase(state => state.cartesianAxis.yAxis);
+
+      expect(spy).toHaveBeenCalledTimes(2);
+
+      // only id "1" exists
+      const lastCallArgs1 = spy.mock.lastCall?.[0];
+      assertNotNull(lastCallArgs1);
+      expect(Object.keys(lastCallArgs1)).toEqual(['1']);
+
+      fireEvent.click(container.getElementsByClassName('pushbutton')[0]);
+      expect(spy).toHaveBeenCalledTimes(3);
+
+      // only id "2" exists
+      const lastCallArgs2 = spy.mock.lastCall?.[0];
+      assertNotNull(lastCallArgs2);
+      expect(Object.keys(lastCallArgs2)).toEqual(['2']);
     });
   });
 
@@ -2244,12 +2280,12 @@ describe('<YAxis />', () => {
     }
 
     it('should pass object padding to custom tick component', () => {
-      let receivedPadding: { top?: number; bottom?: number } | undefined;
       const expectedPadding = { top: 20, bottom: 30 };
+      expect.assertions(5);
 
       const CustomYAxisTick = (props: TickProps) => {
-        receivedPadding = props.padding as { top?: number; bottom?: number };
-        return <text {...props}>Custom Tick</text>;
+        expect(props.padding).toEqual(expectedPadding);
+        return <text>Custom Tick</text>;
       };
 
       render(
@@ -2258,17 +2294,15 @@ describe('<YAxis />', () => {
           <Line type="monotone" dataKey="uv" stroke="#ff7300" />
         </LineChart>,
       );
-
-      expect(receivedPadding).toEqual(expectedPadding);
     });
 
     it('should pass string padding to custom tick component', () => {
-      let receivedPadding: string | undefined;
       const expectedPadding = 'gap';
+      expect.assertions(5);
 
       const CustomYAxisTick = (props: TickProps) => {
-        receivedPadding = props.padding as string;
-        return <text {...props}>Custom Tick</text>;
+        expect(props.padding).toBe(expectedPadding);
+        return <text>Custom Tick</text>;
       };
 
       render(
@@ -2277,17 +2311,15 @@ describe('<YAxis />', () => {
           <Line type="monotone" dataKey="uv" stroke="#ff7300" />
         </LineChart>,
       );
-
-      expect(receivedPadding).toBe(expectedPadding);
     });
 
     it('should pass padding to function-based custom tick', () => {
-      let receivedPadding: { top?: number; bottom?: number } | undefined;
       const expectedPadding = { top: 15, bottom: 25 };
+      expect.assertions(5);
 
       const customTickFunction = (props: TickProps) => {
-        receivedPadding = props.padding as { top?: number; bottom?: number };
-        return <text {...props}>Function Tick</text>;
+        expect(props.padding).toEqual(expectedPadding);
+        return <text>Function Tick</text>;
       };
 
       render(
@@ -2296,16 +2328,14 @@ describe('<YAxis />', () => {
           <Line type="monotone" dataKey="uv" stroke="#ff7300" />
         </LineChart>,
       );
-
-      expect(receivedPadding).toEqual(expectedPadding);
     });
 
     it('should pass default padding when no padding is specified', () => {
-      let receivedPadding: { top?: number; bottom?: number } | string = 'not-called';
+      expect.assertions(5);
 
       const CustomYAxisTick = (props: TickProps) => {
-        receivedPadding = props.padding as { top?: number; bottom?: number };
-        return <text {...props}>Custom Tick</text>;
+        expect(props.padding).toEqual({ top: 0, bottom: 0 });
+        return <text>Custom Tick</text>;
       };
 
       render(
@@ -2314,8 +2344,6 @@ describe('<YAxis />', () => {
           <Line type="monotone" dataKey="uv" stroke="#ff7300" />
         </LineChart>,
       );
-
-      expect(receivedPadding).toEqual({ top: 0, bottom: 0 });
     });
   });
 });

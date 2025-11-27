@@ -10,7 +10,6 @@ import { Curve, Props as CurveProps } from '../shape/Curve';
 import { Text } from '../component/Text';
 import { Cell } from '../component/Cell';
 import { findAllByType } from '../util/ReactUtils';
-import { Global } from '../util/Global';
 import { getMaxRadius, polarToCartesian } from '../util/PolarUtils';
 import { getPercentValue, interpolate, isNumber, mathSign } from '../util/DataUtils';
 import { getTooltipNameProp, getValueByDataKey } from '../util/ChartUtils';
@@ -157,6 +156,9 @@ export type PieSectorDataItem = PiePresentationProps &
     cornerRadius: number | undefined;
   };
 
+type PieSectorShapeProps = PieSectorDataItem & { isActive: boolean; index: number };
+type PieShape = ReactNode | ((props: PieSectorShapeProps, index: number) => React.ReactElement);
+
 /**
  * Internal props, combination of external props + defaultProps + private Recharts state
  */
@@ -175,12 +177,15 @@ interface InternalPieProps extends PieDef, ZIndexable {
   /** the input data */
   data?: ChartDataInput[];
   sectors: ReadonlyArray<PieSectorDataItem>;
+  /** @deprecated */
   activeShape?: ActiveShape<PieSectorDataItem>;
+  /** @deprecated */
   inactiveShape?: ActiveShape<PieSectorDataItem>;
+  shape?: PieShape;
   labelLine?: PieLabelLine;
   label?: PieLabel;
   animationEasing?: AnimationTiming;
-  isAnimationActive?: boolean;
+  isAnimationActive?: boolean | 'auto';
   animationBegin?: number;
   animationDuration?: AnimationDuration;
   onAnimationStart?: () => void;
@@ -192,37 +197,84 @@ interface InternalPieProps extends PieDef, ZIndexable {
 }
 
 interface PieProps extends PieDef, ZIndexable {
-  id?: string;
-  className?: string;
   /**
-   * Defaults to 'value' if not specified.
+   * @deprecated use the `shape` prop to create each sector
+   * `isActive` designates the "active" shape
    */
-  dataKey?: DataKey<any>;
-  nameKey?: DataKey<any>;
-  /** The minimum angle for no-zero element */
-  minAngle?: number;
-  legendType?: LegendType;
-  tooltipType?: TooltipType;
-  /** TODO: review this as an external prop - it seems to have no effect */
-  /** the max radius of pie */
-  maxRadius?: number;
-  hide?: boolean;
+  activeShape?: ActiveShape<PieSectorDataItem>;
+  /**
+   * @defaultValue 400
+   */
+  animationBegin?: number;
+  /**
+   * @defaultValue 1500
+   */
+  animationDuration?: AnimationDuration;
+  /**
+   * @defaultValue ease
+   */
+  animationEasing?: AnimationTiming;
+  className?: string;
   /** the input data */
   data?: ChartDataInput[];
-  activeShape?: ActiveShape<PieSectorDataItem>;
+  /**
+   * @defaultValue value
+   */
+  dataKey?: DataKey<any>;
+  /**
+   * If set true, the pie will not be displayed.
+   *
+   * @defaultValue false
+   */
+  hide?: boolean;
+  id?: string;
+  /**
+   * @deprecated use the `shape` prop to modify each sector
+   */
   inactiveShape?: ActiveShape<PieSectorDataItem>;
-  labelLine?: PieLabelLine;
+  /**
+   * @defaultValue auto
+   */
+  isAnimationActive?: boolean | 'auto';
+  /**
+   * @defaultValue false
+   */
   label?: PieLabel;
-  animationEasing?: AnimationTiming;
-  isAnimationActive?: boolean;
-  animationBegin?: number;
-  animationDuration?: AnimationDuration;
-  onAnimationStart?: () => void;
+  /**
+   * @defaultValue true
+   */
+  labelLine?: PieLabelLine;
+  /**
+   * @defaultValue rect
+   */
+  legendType?: LegendType;
+  /** the max radius of pie */
+  maxRadius?: number;
+  /**
+   * The minimum angle for no-zero element
+   *
+   * @defaultValue 0
+   */
+  minAngle?: number;
+  /**
+   * @defaultValue name
+   */
+  nameKey?: DataKey<any>;
   onAnimationEnd?: () => void;
+  onAnimationStart?: () => void;
+  onClick?: (data: any, index: number, e: React.MouseEvent) => void;
   onMouseEnter?: (data: any, index: number, e: React.MouseEvent) => void;
   onMouseLeave?: (data: any, index: number, e: React.MouseEvent) => void;
-  onClick?: (data: any, index: number, e: React.MouseEvent) => void;
+  /**
+   * @defaultValue 0
+   */
   rootTabIndex?: number;
+  shape?: PieShape;
+  tooltipType?: TooltipType;
+  /**
+   * @defaultValue 100
+   */
+  zIndex?: number;
 }
 
 type PieSvgAttributes = Omit<PresentationAttributesAdaptChildEvent<any, SVGElement>, 'ref'>;
@@ -253,30 +305,52 @@ function SetPiePayloadLegend(props: { children?: ReactNode; id: GraphicalItemId 
 
 type PieSectorsProps = {
   sectors: Readonly<PieSectorDataItem[]>;
+  /**
+   * @deprecated
+   */
   activeShape: ActiveShape<Readonly<PieSectorDataItem>> | undefined;
+  /**
+   * @deprecated
+   */
   inactiveShape: ActiveShape<Readonly<PieSectorDataItem>> | undefined;
+  shape: PieShape;
   allOtherPieProps: WithoutId<InternalProps>;
 };
 
-function getTooltipEntrySettings(props: InternalProps): TooltipPayloadConfiguration {
-  const { dataKey, nameKey, sectors, stroke, strokeWidth, fill, name, hide, tooltipType } = props;
-  return {
-    dataDefinedOnItem: sectors.map((p: PieSectorDataItem) => p.tooltipPayload),
-    positions: sectors.map((p: PieSectorDataItem) => p.tooltipPosition),
-    settings: {
-      stroke,
-      strokeWidth,
-      fill,
-      dataKey,
-      nameKey,
-      name: getTooltipNameProp(name, dataKey),
-      hide,
-      type: tooltipType,
-      color: fill,
-      unit: '', // why doesn't Pie support unit?
-    },
-  };
-}
+const SetPieTooltipEntrySettings = React.memo(
+  ({
+    dataKey,
+    nameKey,
+    sectors,
+    stroke,
+    strokeWidth,
+    fill,
+    name,
+    hide,
+    tooltipType,
+  }: Pick<
+    InternalProps,
+    'dataKey' | 'nameKey' | 'sectors' | 'stroke' | 'strokeWidth' | 'fill' | 'name' | 'hide' | 'tooltipType'
+  >) => {
+    const tooltipEntrySettings: TooltipPayloadConfiguration = {
+      dataDefinedOnItem: sectors.map((p: PieSectorDataItem) => p.tooltipPayload),
+      positions: sectors.map((p: PieSectorDataItem) => p.tooltipPosition),
+      settings: {
+        stroke,
+        strokeWidth,
+        fill,
+        dataKey,
+        nameKey,
+        name: getTooltipNameProp(name, dataKey),
+        hide,
+        type: tooltipType,
+        color: fill,
+        unit: '', // why doesn't Pie support unit?
+      },
+    };
+    return <SetTooltipEntrySettings tooltipEntrySettings={tooltipEntrySettings} />;
+  },
+);
 
 const getTextAnchor = (x: number, cx: number) => {
   if (x > cx) {
@@ -447,7 +521,7 @@ function PieLabelList({
 }
 
 function PieSectors(props: PieSectorsProps) {
-  const { sectors, activeShape, inactiveShape: inactiveShapeProp, allOtherPieProps } = props;
+  const { sectors, activeShape, inactiveShape: inactiveShapeProp, allOtherPieProps, shape } = props;
 
   const activeIndex = useAppSelector(selectActiveTooltipIndex);
   const {
@@ -469,9 +543,10 @@ function PieSectors(props: PieSectorsProps) {
     <>
       {sectors.map((entry, i) => {
         if (entry?.startAngle === 0 && entry?.endAngle === 0 && sectors.length !== 1) return null;
-        const isSectorActive = activeShape && String(i) === activeIndex;
+
+        const isActive = String(i) === activeIndex;
         const inactiveShape = activeIndex ? inactiveShapeProp : null;
-        const sectorOptions = isSectorActive ? activeShape : inactiveShape;
+        const sectorOptions = activeShape && isActive ? activeShape : inactiveShape;
         const sectorProps = {
           ...entry,
           stroke: entry.stroke,
@@ -493,7 +568,7 @@ function PieSectors(props: PieSectorsProps) {
             // @ts-expect-error the types need a bit of attention
             onClick={onClickFromContext(entry, i)}
           >
-            <Shape option={sectorOptions} isActive={isSectorActive} shapeType="sector" {...sectorProps} />
+            <Shape option={shape ?? sectorOptions} index={i} shapeType="sector" isActive={isActive} {...sectorProps} />
           </Layer>
         );
       })}
@@ -718,6 +793,7 @@ function SectorsWithAnimation({
                 activeShape={activeShape}
                 inactiveShape={inactiveShape}
                 allOtherPieProps={props}
+                shape={props.shape}
               />
             </Layer>
           );
@@ -729,7 +805,7 @@ function SectorsWithAnimation({
   );
 }
 
-const defaultPieProps = {
+export const defaultPieProps = {
   animationBegin: 400,
   animationDuration: 1500,
   animationEasing: 'ease',
@@ -740,7 +816,8 @@ const defaultPieProps = {
   fill: '#808080',
   hide: false,
   innerRadius: 0,
-  isAnimationActive: !Global.isSsr,
+  isAnimationActive: 'auto',
+  label: false,
   labelLine: true,
   legendType: 'rect',
   minAngle: 0,
@@ -772,7 +849,17 @@ function PieImpl(props: Omit<InternalProps, 'sectors'>) {
 
   return (
     <ZIndexLayer zIndex={props.zIndex}>
-      <SetTooltipEntrySettings fn={getTooltipEntrySettings} args={{ ...props, sectors }} />
+      <SetPieTooltipEntrySettings
+        dataKey={props.dataKey}
+        nameKey={props.nameKey}
+        sectors={sectors}
+        stroke={props.stroke}
+        strokeWidth={props.strokeWidth}
+        fill={props.fill}
+        name={props.name}
+        hide={props.hide}
+        tooltipType={props.tooltipType}
+      />
       <Layer tabIndex={rootTabIndex} className={layerClass}>
         <SectorsWithAnimation props={{ ...propsWithoutId, sectors }} previousSectorsRef={previousSectorsRef} />
       </Layer>

@@ -59,24 +59,6 @@ export const Simple = {
   },
 };
 
-export const Tiny = {
-  render: (args: Args) => {
-    return (
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart {...args}>
-          <Line type="monotone" dataKey="pv" stroke="#8884d8" strokeWidth={2} />
-          <RechartsHookInspector />
-        </LineChart>
-      </ResponsiveContainer>
-    );
-  },
-  args: {
-    width: 300,
-    height: 100,
-    data: pageData,
-  },
-};
-
 export const Dashed = {
   render: () => {
     return (
@@ -352,7 +334,7 @@ export const WithCustomizedDot = {
     const CustomizedDot = (props: any) => {
       const { cx, cy, value } = props;
 
-      if (value > 2500) {
+      if (value >= 800) {
         return (
           <svg x={cx - 10} y={cy - 10} width={20} height={20} fill="red" viewBox="0 0 1024 1024">
             <path
@@ -1134,6 +1116,55 @@ export const ChangingDataKey = {
       right: 30,
       left: 20,
       bottom: 5,
+    },
+  },
+};
+
+const activeDotExcludedDomainData = [
+  { timestamp: 0.9, pv: 120 },
+  { timestamp: 1.3, pv: 160 },
+];
+
+export const ActiveDotExcludedFromDomain = {
+  render: (args: Args & { allowDataOverflow: boolean }) => {
+    const { allowDataOverflow, ...chartArgs } = args;
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart {...chartArgs}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis
+            dataKey="timestamp"
+            type="number"
+            domain={[1.01, 1.15]}
+            allowDataOverflow={allowDataOverflow}
+            tickFormatter={value => value.toFixed(2)}
+          />
+          <YAxis type="number" domain={[80, 200]} allowDataOverflow={allowDataOverflow} />
+          <Tooltip cursor={{ stroke: '#999', strokeWidth: 1 }} />
+          <Line type="monotone" dataKey="pv" stroke="#8884d8" isAnimationActive={false} />
+          <RechartsHookInspector />
+        </LineChart>
+      </ResponsiveContainer>
+    );
+  },
+  args: {
+    width: 480,
+    height: 260,
+    data: activeDotExcludedDomainData,
+    margin: {
+      top: 20,
+      right: 36,
+      left: 36,
+      bottom: 16,
+    },
+    allowDataOverflow: true,
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Hover inside the plot area. Because the X domain excludes all data points, the tooltip remains inactive and no active dot renders, even with margins and allowDataOverflow enabled.',
+      },
     },
   },
 };

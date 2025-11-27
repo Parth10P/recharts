@@ -46,17 +46,37 @@ export type ErrorBarDataPointFormatter = (
  */
 interface ErrorBarProps extends ZIndexable {
   dataKey: DataKey<any>;
-  /** the width of the error bar ends */
+  /**
+   * Width of the error bar ends
+   *
+   * @defaultValue 5
+   */
   width?: number;
   /**
    * Only used for ScatterChart with error bars in two directions.
    * Only accepts a value of "x" or "y" and makes the error bars lie in that direction.
    */
   direction?: ErrorBarDirection;
+  /**
+   * @defaultValue true
+   */
   isAnimationActive?: boolean;
+  /**
+   * @defaultValue 0
+   */
   animationBegin?: number;
+  /**
+   * @defaultValue 400
+   */
   animationDuration?: number;
+  /**
+   * @defaultValue ease-in-out
+   */
   animationEasing?: AnimationTiming;
+  /**
+   * @defaultValue 400
+   */
+  zIndex?: number;
 }
 
 export type Props = SVGProps<SVGLineElement> & ErrorBarProps;
@@ -106,7 +126,7 @@ function ErrorBarImpl(props: ErrorBarInternalProps) {
     return null;
   }
 
-  const errorBars = data.map((entry: any) => {
+  const errorBars = data.map((entry: any, dataIndex: number) => {
     const { x, y, value, errorVal } = dataPointFormatter(entry, dataKey, direction);
 
     if (!errorVal || x == null || y == null) {
@@ -163,12 +183,8 @@ function ErrorBarImpl(props: ErrorBarInternalProps) {
     const transformOrigin = `${x + offset}px ${y + offset}px`;
 
     return (
-      <Layer
-        className="recharts-errorBar"
-        key={`bar-${lineCoordinates.map(c => `${c.x1}-${c.x2}-${c.y1}-${c.y2}`)}`}
-        {...svgProps}
-      >
-        {lineCoordinates.map(c => {
+      <Layer className="recharts-errorBar" key={`bar-${x}-${y}-${value}-${dataIndex}`} {...svgProps}>
+        {lineCoordinates.map((c, lineIndex) => {
           const lineStyle = isAnimationActive ? { transformOrigin } : undefined;
           return (
             <CSSTransitionAnimate
@@ -180,7 +196,7 @@ function ErrorBarImpl(props: ErrorBarInternalProps) {
               easing={animationEasing}
               isActive={isAnimationActive}
               duration={animationDuration}
-              key={`errorbar-${c.x1}-${c.x2}-${c.y1}-${c.y2}`}
+              key={`errorbar-${dataIndex}-${c.x1}-${c.y1}-${c.x2}-${c.y2}-${lineIndex}`}
             >
               {style => <line {...c} style={{ ...lineStyle, ...style }} />}
             </CSSTransitionAnimate>
@@ -204,7 +220,7 @@ function useErrorBarDirection(directionFromProps: ErrorBarDirection | undefined)
   return 'x';
 }
 
-const errorBarDefaultProps = {
+export const errorBarDefaultProps = {
   stroke: 'black',
   strokeWidth: 1.5,
   width: 5,

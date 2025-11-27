@@ -51,7 +51,7 @@ import { AppliedChartData, ChartData } from '../chartDataSlice';
 import { selectChartDataWithIndexes } from './dataSelectors';
 import { GraphicalItemSettings } from '../graphicalItemsSlice';
 import { ReferenceAreaSettings, ReferenceDotSettings, ReferenceLineSettings } from '../referenceElementsSlice';
-import { selectChartName, selectStackOffsetType } from './rootPropsSelectors';
+import { selectChartName, selectReverseStackOrder, selectStackOffsetType } from './rootPropsSelectors';
 import { mathSign } from '../../util/DataUtils';
 import { combineAxisRangeWithReverse } from './combiners/combineAxisRangeWithReverse';
 import { TooltipIndex, TooltipInteractionState, TooltipPayload, TooltipSettingsState } from '../tooltipSlice';
@@ -84,6 +84,7 @@ import { DefinitelyStackedGraphicalItem, isStacked } from '../types/StackedGraph
 import { numericalDomainSpecifiedWithoutRequiringData } from '../../util/isDomainSpecifiedByUser';
 import { numberDomainEqualityCheck } from './numberDomainEqualityCheck';
 import { emptyArraysAreEqualCheck } from './arrayEqualityCheck';
+import { ActiveLabel } from '../../synchronisation/types';
 
 export const selectTooltipAxisRealScaleType: (state: RechartsRootState) => string | undefined = createSelector(
   [selectTooltipAxis, selectChartLayout, selectHasBar, selectChartName, selectTooltipAxisType],
@@ -170,7 +171,7 @@ const selectAllStackedGraphicalItems: (state: RechartsRootState) => ReadonlyArra
   );
 
 const selectTooltipStackGroups: (state: RechartsRootState) => Record<StackId, StackGroup> = createSelector(
-  [selectTooltipStackedData, selectAllStackedGraphicalItems, selectStackOffsetType],
+  [selectTooltipStackedData, selectAllStackedGraphicalItems, selectStackOffsetType, selectReverseStackOrder],
   combineStackGroups,
 );
 
@@ -393,11 +394,11 @@ const selectTooltipInteractionState: (state: RechartsRootState) => TooltipIntera
 );
 
 export const selectActiveTooltipIndex: (state: RechartsRootState) => TooltipIndex | null = createSelector(
-  [selectTooltipInteractionState, selectTooltipDisplayedData],
+  [selectTooltipInteractionState, selectTooltipDisplayedData, selectTooltipAxisDataKey, selectTooltipAxisDomain],
   combineActiveTooltipIndex,
 );
 
-export const selectActiveLabel: (state: RechartsRootState) => string | undefined = createSelector(
+export const selectActiveLabel: (state: RechartsRootState) => ActiveLabel = createSelector(
   [selectTooltipAxisTicks, selectActiveTooltipIndex],
   combineActiveLabel,
 );

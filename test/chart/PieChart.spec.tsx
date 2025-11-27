@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent } from '@testing-library/react';
+import { act, fireEvent } from '@testing-library/react';
 import { expect, Mock, vi } from 'vitest';
 import { Cell, Legend, Pie, PieChart, Sector, SectorProps, Tooltip, useChartHeight } from '../../src';
 import { useChartWidth, useViewBox } from '../../src/context/chartLayoutContext';
@@ -509,9 +509,17 @@ describe('<PieChart />', () => {
       const { container } = rechartsTestRender(getPieChart({ onClick }));
       const sectors = container.querySelectorAll('.recharts-sector');
       const sector = sectors[2];
+      expect(sector).not.toBeNull();
 
       expect(onClick).toHaveBeenCalledTimes(0);
-      await user.click(sector);
+      // need to hover first to make the sector active because active shapes have an extra layer that events
+      // don't seem to bubble through in tests
+      await user.hover(sector);
+      await user.click(container.querySelector('.recharts-layer .recharts-active-shape')!);
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+
       expect(onClick).toHaveBeenCalledTimes(1);
       expect(onClick).toHaveBeenLastCalledWith(
         {
@@ -540,20 +548,23 @@ describe('<PieChart />', () => {
 
       expect(onMouseEnter).toHaveBeenCalledTimes(0);
       await user.hover(sector);
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+
       expect(onMouseEnter).toHaveBeenCalledTimes(1);
-      // why are the coordinates undefined and index null? Looks like a bug to me
-      expect(onMouseEnter).toHaveBeenLastCalledWith(
-        {
-          activeCoordinate: undefined,
-          activeDataKey: undefined,
-          activeIndex: null,
-          activeLabel: undefined,
-          activeTooltipIndex: null,
-          isTooltipActive: false,
+      const firstArg = onMouseEnter.mock.calls[0][0];
+      expect(firstArg).toEqual({
+        activeCoordinate: {
+          x: 165.08751071020006,
+          y: 207.64446567223055,
         },
-        // second argument is the synthetic event from React
-        expect.any(Object),
-      );
+        activeDataKey: 'value',
+        activeIndex: '2',
+        activeLabel: 2,
+        activeTooltipIndex: '2',
+        isTooltipActive: true,
+      });
     });
 
     test('onMouseLeave Sector should invoke onMouseLeave callback', async () => {
@@ -564,9 +575,20 @@ describe('<PieChart />', () => {
       const sectors = container.querySelectorAll('.recharts-sector');
       const sector = sectors[2];
 
+      // need to hover first to make the sector active because active shapes have an extra layer that events
+      // don't seem to bubble through in tests
       await user.hover(sector);
+      await user.hover(container.querySelector('.recharts-layer .recharts-active-shape')!);
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+
       expect(onMouseLeave).toHaveBeenCalledTimes(0);
       await user.unhover(sector);
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+
       expect(onMouseLeave).toHaveBeenCalledTimes(1);
       expect(onMouseLeave).toHaveBeenLastCalledWith(
         {

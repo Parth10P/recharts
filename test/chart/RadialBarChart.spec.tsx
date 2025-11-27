@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 import { describe, test, it, expect, vi, beforeEach } from 'vitest';
 import { Cell, Customized, Legend, RadialBar, RadialBarChart, Sector, SectorProps, Tooltip } from '../../src';
 import { expectRadialBarLabels, expectRadialBars } from '../helper/expectRadialBars';
@@ -16,9 +16,17 @@ function assertActiveShapeInteractions(container: HTMLElement) {
   const [sector1, sector2] = Array.from(sectorNodes);
 
   fireEvent.mouseOver(sector1, { clientX: 200, clientY: 200 });
+  act(() => {
+    vi.runOnlyPendingTimers();
+  });
+
   expect(container.querySelectorAll('.recharts-active-shape')).toHaveLength(1);
 
   fireEvent.mouseOver(sector2, { clientX: 200, clientY: 200 });
+  act(() => {
+    vi.runOnlyPendingTimers();
+  });
+
   expect(container.querySelectorAll('.recharts-active-shape')).toHaveLength(1);
 
   fireEvent.mouseOut(sector2);
@@ -378,7 +386,7 @@ describe('<RadialBarChart />', () => {
         barSize={10}
         data={data}
       >
-        <RadialBar startAngle={0} endAngle={180} label={label} background dataKey="uv" isAnimationActive={false} />
+        <RadialBar label={label} background dataKey="uv" isAnimationActive={false} />
       </RadialBarChart>,
     );
     expect(container.querySelectorAll('.recharts-radial-bar-sector')).toHaveLength(7);
