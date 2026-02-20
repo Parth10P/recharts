@@ -214,33 +214,33 @@ describe('Line animation', () => {
       await animationManager.setAnimationProgress(0.1);
 
       const line = getLine(container);
-      // after travelling 10% of the path, the stroke-dasharray should be 10px visible and 90px hidden
-      expect(line).toHaveAttribute('stroke-dasharray', '10px 90px');
+      // after travelling 10% of the path, the stroke-dasharray should be 10px visible with a totalLength gap
+      expect(line).toHaveAttribute('stroke-dasharray', '10px 100px');
 
       await animationManager.setAnimationProgress(0.2);
 
-      // after travelling 20% of the path, the stroke-dasharray should be 20px visible and 80px hidden
-      expect(line).toHaveAttribute('stroke-dasharray', '20px 80px');
+      // after travelling 20% of the path, the stroke-dasharray should be 20px visible with a totalLength gap
+      expect(line).toHaveAttribute('stroke-dasharray', '20px 100px');
 
       await animationManager.setAnimationProgress(1);
-      // after travelling 100% of the path, the stroke-dasharray should be 100px visible and 0px hidden
-      expect(line).toHaveAttribute('stroke-dasharray', '100px 0px');
+      // after travelling 100% of the path, the stroke-dasharray should be 100px visible - gap is totalLength to avoid float precision artifacts
+      expect(line).toHaveAttribute('stroke-dasharray', '100px 100px');
 
       await animationManager.completeAnimation();
       /*
-       * After the animation is completed, the stroke-dasharray should remain 100px visible and 0px hidden.
+       * After the animation is completed, the stroke-dasharray should remain 100px visible.
        * It would also be acceptable to remove the stroke-dasharray attribute altogether. But no harm if it remains.
        */
-      expect(line).toHaveAttribute('stroke-dasharray', '100px 0px');
+      expect(line).toHaveAttribute('stroke-dasharray', '100px 100px');
     });
 
-    it('should set the stroke-dasharray to 100, 0 when the animation is completed', async () => {
+    it('should set the stroke-dasharray to 100, 100 when the animation is completed', async () => {
       const { container, animationManager } = renderTestCase();
 
       await animationManager.setAnimationProgress(1);
 
       const line = getLine(container);
-      expect(line).toHaveAttribute('stroke-dasharray', '100px 0px');
+      expect(line).toHaveAttribute('stroke-dasharray', '100px 100px');
     });
 
     it('should render all the dots without animation', () => {
@@ -366,30 +366,30 @@ describe('Line animation', () => {
         await animationManager.setAnimationProgress(0.1);
 
         const line = getLine(container);
-        // after travelling 10% of the path, the stroke-dasharray should be 10px visible and 90px hidden
+        // after travelling 10% of the path, the stroke-dasharray should be 10px visible with a totalLength gap
         // but as the line grows, it leaves behind the 7,3 dashed stroke as instructed by the prop
-        expect(line).toHaveAttribute('stroke-dasharray', '7px, 3px, 0px, 90px');
+        expect(line).toHaveAttribute('stroke-dasharray', '7px, 3px, 0px, 100px');
 
         await animationManager.setAnimationProgress(0.2);
 
-        // after travelling 20% of the path, the stroke-dasharray should be 20px visible and 80px hidden
-        expect(line).toHaveAttribute('stroke-dasharray', '7px, 3px, 7px, 3px, 0px, 80px');
+        // after travelling 20% of the path, the stroke-dasharray should be 20px visible with a totalLength gap
+        expect(line).toHaveAttribute('stroke-dasharray', '7px, 3px, 7px, 3px, 0px, 100px');
 
         await animationManager.setAnimationProgress(1);
-        // after travelling 100% of the path, the stroke-dasharray should be 100px visible and 0px hidden
+        // after travelling 100% of the path, the stroke-dasharray should be fully visible with a totalLength gap
         expect(line).toHaveAttribute(
           'stroke-dasharray',
-          '7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 0px, 0px',
+          '7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 0px, 100px',
         );
 
         await animationManager.completeAnimation();
         /*
-         * After the animation is completed, the stroke-dasharray should remain 100px visible and 0px hidden.
+         * After the animation is completed, the stroke-dasharray should remain fully visible with a totalLength gap.
          * This could be shortened to just '7,3' but no harm if it remains as is.
          */
         expect(line).toHaveAttribute(
           'stroke-dasharray',
-          '7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 0px, 0px',
+          '7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 7px, 3px, 0px, 100px',
         );
       });
     });
@@ -500,27 +500,27 @@ describe('Line animation', () => {
       it('should continue growing the line where it left off', async () => {
         const { container, animationManager } = renderTestCase();
         await prime(container, animationManager);
-        const fullyVisibleLine = '100px 0px';
+        const fullyVisibleLine = '100px 100px';
 
         /*
          * During priming we have progressed the animation to 30% of the path,
-         * so the stroke-dasharray should be 30px visible and 70px hidden.
+         * so the stroke-dasharray should be 30px visible with a totalLength gap.
          */
-        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '30px 70px');
+        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '30px 100px');
 
         /*
-         * Now, the line should continue growing from where it left off. Previously it was 30% of the path, so 30px visible and 70px hidden.
+         * Now, the line should continue growing from where it left off. Previously it was 30% of the path, so 30px visible with a totalLength gap.
          * Even though a new animation is started, it should not reset the stroke-dasharray
          * and it should continue growing from the most recent length.
          */
         await animationManager.setAnimationProgress(0.1);
-        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '40px 60px');
+        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '40px 100px');
 
         await animationManager.setAnimationProgress(0.2);
-        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '50px 50px');
+        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '50px 100px');
 
         await animationManager.setAnimationProgress(0.3);
-        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '60px 40px');
+        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '60px 100px');
 
         // Because the animation had a head start, it will arrive to full length quicker than the initial animation would.
         await animationManager.setAnimationProgress(0.7);
@@ -680,12 +680,12 @@ describe('Line animation', () => {
       it('should keep the whole line visible during the animation', async () => {
         const { container, animationManager } = renderTestCase();
         await prime(container, animationManager);
-        const fullyVisibleLine = '100px 0px';
+        const fullyVisibleLine = '100px 100px';
 
         /*
-         * stroke-dasharray should still be 100px visible and 0px hidden because the animation works by changing the path, not the dasharray
+         * stroke-dasharray should still be 100px visible with a totalLength gap because the animation works by changing the path, not the dasharray
          */
-        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '100px 0px');
+        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '100px 100px');
 
         await animationManager.setAnimationProgress(0.1);
         expect(getLine(container)).toHaveAttribute('stroke-dasharray', fullyVisibleLine);
@@ -885,20 +885,20 @@ describe('Line animation', () => {
       // path changes little by little as the animation progresses
       await animationManager.setAnimationProgress(0.2);
       expect(getLine(container).getAttribute('d')).toBe(initialPath);
-      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '20px 80px');
+      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '20px 100px');
 
       await animationManager.setAnimationProgress(0.5);
       expect(getLine(container).getAttribute('d')).toBe(initialPath);
-      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '50px 50px');
+      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '50px 100px');
 
       await animationManager.setAnimationProgress(1);
       expect(getLine(container).getAttribute('d')).toBe(initialPath);
-      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '100px 0px');
+      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '100px 100px');
 
       // path should not change after the animation is completed
       await animationManager.completeAnimation();
       expect(getLine(container).getAttribute('d')).toBe(initialPath);
-      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '100px 0px');
+      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '100px 100px');
     });
   });
 
@@ -958,27 +958,27 @@ describe('Line animation', () => {
       it('should continue growing the line where it left off', async () => {
         const { container, animationManager } = renderTestCase();
         await prime(container, animationManager);
-        const fullyVisibleLine = '100px 0px';
+        const fullyVisibleLine = '100px 100px';
 
         /*
-         * The path had arrived at 30% of the path, so it should be 30px visible and 70px hidden
+         * The path had arrived at 30% of the path, so it should be 30px visible with a totalLength gap
          * before the next animation starts.
          */
-        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '30px 70px');
+        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '30px 100px');
 
         /*
-         * Now, the line should continue growing from where it left off. Previously it was 30% of the path, so 30px visible and 70px hidden.
+         * Now, the line should continue growing from where it left off. Previously it was 30% of the path, so 30px visible with a totalLength gap.
          * Even though a new animation is started, it should not reset the stroke-dasharray
          * and it should continue growing from the most recent length.
          */
         await animationManager.setAnimationProgress(0.1);
-        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '40px 60px');
+        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '40px 100px');
 
         await animationManager.setAnimationProgress(0.2);
-        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '50px 50px');
+        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '50px 100px');
 
         await animationManager.setAnimationProgress(0.3);
-        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '60px 40px');
+        expect(getLine(container)).toHaveAttribute('stroke-dasharray', '60px 100px');
 
         // Because the animation had a head start, it will arrive to full length quicker than the initial animation would.
         await animationManager.setAnimationProgress(0.7);
@@ -1037,10 +1037,10 @@ describe('Line animation', () => {
       it('should keep the whole line visible during the animation', async () => {
         const { container, animationManager } = renderTestCase();
         await prime(container, animationManager);
-        const fullyVisibleLine = '100px 0px';
+        const fullyVisibleLine = '100px 100px';
 
         /*
-         * stroke-dasharray should still be 100px visible and 0px hidden because the animation works by changing the path, not the dasharray
+         * stroke-dasharray should still be 100px visible with a totalLength gap because the animation works by changing the path, not the dasharray
          */
         expect(getLine(container)).toHaveAttribute('stroke-dasharray', fullyVisibleLine);
 
@@ -1214,10 +1214,10 @@ describe('Line animation', () => {
     it('should keep the whole line visible during the animation', async () => {
       const { container, animationManager } = renderTestCase();
       await prime(container, animationManager);
-      const fullyVisibleLine = '100px 0px';
+      const fullyVisibleLine = '100px 100px';
 
       /*
-       * stroke-dasharray should still be 100px visible and 0px hidden because the animation works by changing the path, not the dasharray
+       * stroke-dasharray should still be 100px visible with a totalLength gap because the animation works by changing the path, not the dasharray
        */
       expect(getLine(container)).toHaveAttribute('stroke-dasharray', fullyVisibleLine);
 
@@ -1530,7 +1530,7 @@ describe('Line animation', () => {
 
       await animationManager.setAnimationProgress(0.3);
       // the line should be partially visible again
-      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '30px 70px');
+      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '30px 100px');
 
       // complete the animation
       await animationManager.completeAnimation();
@@ -1566,7 +1566,7 @@ describe('Line animation', () => {
       await animationManager.setAnimationProgress(0.3);
 
       // verify the line is partially visible at 30%
-      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '30px 70px');
+      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '30px 100px');
 
       // change the strokeWidth while animation is in progress
       const button = container.querySelector('button');
@@ -1577,20 +1577,20 @@ describe('Line animation', () => {
       });
 
       // the animation should continue from 30%, not restart from 0
-      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '30px 70px');
+      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '30px 100px');
 
       // continue animation to 60%
       await animationManager.setAnimationProgress(0.6);
 
       // the line should be at 60%, not at 30% (which would indicate a restart)
-      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '60px 40px');
+      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '60px 100px');
 
       // complete the animation
       await animationManager.completeAnimation();
 
       // the full line should be visible
       expectLines(container, [{ d: 'M5,5L23,27.5L41,27.5L59,50L77,32.45L95,52.475' }]);
-      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '100px 0px');
+      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '100px 100px');
     });
 
     it('should not reset animation progress when strokeWidth changes multiple times', async () => {
@@ -1598,7 +1598,7 @@ describe('Line animation', () => {
 
       // start the initial animation and progress to 40%
       await animationManager.setAnimationProgress(0.4);
-      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '40px 60px');
+      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '40px 100px');
 
       // change strokeWidth first time
       const button = container.querySelector('button');
@@ -1608,11 +1608,11 @@ describe('Line animation', () => {
       });
 
       // animation should still be at 40%
-      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '40px 60px');
+      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '40px 100px');
 
       // progress to 70%
       await animationManager.setAnimationProgress(0.7);
-      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '70px 30px');
+      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '70px 100px');
 
       // change strokeWidth second time
       act(() => {
@@ -1620,7 +1620,7 @@ describe('Line animation', () => {
       });
 
       // animation should still be at 70%, not reset to 40% or 0%
-      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '70px 30px');
+      expect(getLine(container)).toHaveAttribute('stroke-dasharray', '70px 100px');
 
       // complete the animation
       await animationManager.completeAnimation();
