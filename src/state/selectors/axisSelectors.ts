@@ -129,6 +129,7 @@ export const implicitXAxis: XAxisSettings = {
   ticks: undefined,
   type: 'category',
   unit: undefined,
+  niceTicks: false,
 };
 
 export const selectXAxisSettingsNoDefaults = (state: RechartsRootState, axisId: AxisId): XAxisSettings | undefined => {
@@ -172,6 +173,7 @@ export const implicitYAxis: YAxisSettings = {
   ticks: undefined,
   type: 'number',
   unit: undefined,
+  niceTicks: false,
   width: DEFAULT_Y_AXIS_WIDTH,
 };
 
@@ -1138,7 +1140,7 @@ export const combineNiceTicks = (
     (domainDefinition[0] === 'auto' || domainDefinition[1] === 'auto') &&
     isWellFormedNumberDomain(axisDomain)
   ) {
-    return getNiceTickValues(axisDomain, axisSettings.tickCount, axisSettings.allowDecimals);
+    return getNiceTickValues(axisDomain, axisSettings.tickCount, axisSettings.allowDecimals, axisSettings.niceTicks);
   }
 
   if (
@@ -1147,7 +1149,12 @@ export const combineNiceTicks = (
     axisSettings.type === 'number' &&
     isWellFormedNumberDomain(axisDomain)
   ) {
-    return getTickValuesFixedDomain(axisDomain as NumberDomain, axisSettings.tickCount, axisSettings.allowDecimals);
+    return getTickValuesFixedDomain(
+      axisDomain as NumberDomain,
+      axisSettings.tickCount,
+      axisSettings.allowDecimals,
+      axisSettings.niceTicks,
+    );
   }
 
   return undefined;
