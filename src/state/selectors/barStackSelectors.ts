@@ -76,8 +76,9 @@ const combineStackRects: (
   const stackRects: Array<BarStackItem | undefined> = [];
   allBarIds.forEach(barId => {
     const rectangles = selectBarRectangles(state, barId, isPanorama, undefined);
-    rectangles?.forEach((rect, index) => {
-      stackRects[index] = expandRectangle(stackRects[index], rect);
+    rectangles?.forEach(rect => {
+      const rectIndex = rect.originalDataIndex;
+      stackRects[rectIndex] = expandRectangle(stackRects[rectIndex], rect);
     });
   });
   return stackRects;

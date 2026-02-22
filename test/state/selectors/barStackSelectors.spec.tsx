@@ -193,6 +193,44 @@ describe('BarStack Selectors', () => {
     });
   });
 
+  describe('with sparse BarStack data after zero-dimension filtering', () => {
+    const renderTestCase = createSelectorTestCase(({ children }) => (
+      <BarChart
+        width={200}
+        height={200}
+        data={[
+          { name: 'A', value1: 0, value2: 0 },
+          { name: 'B', value1: 10, value2: 20 },
+        ]}
+      >
+        <BarStack stackId="sparse">
+          <Bar dataKey="value1" id="bar-one" isAnimationActive={false} />
+          <Bar dataKey="value2" id="bar-two" isAnimationActive={false} />
+          {children}
+        </BarStack>
+      </BarChart>
+    ));
+
+    test('selectStackRects should preserve original data indices when combining filtered bars', () => {
+      const { spy: stackSpy } = renderTestCase(state => selectStackRects(state, 'sparse', false));
+      const { spy: firstBarSpy } = renderTestCase(state => selectBarRectangles(state, 'bar-one', false, undefined));
+      const { spy: secondBarSpy } = renderTestCase(state => selectBarRectangles(state, 'bar-two', false, undefined));
+
+      const stackRects = stackSpy.mock.lastCall?.[0];
+      const firstRects = firstBarSpy.mock.lastCall?.[0] ?? [];
+      const secondRects = secondBarSpy.mock.lastCall?.[0] ?? [];
+
+      expect(firstRects).toHaveLength(1);
+      expect(secondRects).toHaveLength(1);
+      expect(firstRects[0]).toEqual(expect.objectContaining({ originalDataIndex: 1 }));
+      expect(secondRects[0]).toEqual(expect.objectContaining({ originalDataIndex: 1 }));
+
+      expect(stackRects).toHaveLength(2);
+      expect(stackRects?.[0]).toBeUndefined();
+      expect(stackRects?.[1]).toEqual(expandRectangle(firstRects[0], secondRects[0]));
+    });
+  });
+
   describe('expandRectangle', () => {
     it('should return undefined if both rectangles are undefined', () => {
       const result = expandRectangle(undefined, undefined);

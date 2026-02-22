@@ -112,8 +112,8 @@ export interface BarRectangleItem extends RectangleProps {
    */
   stackedBarStart: number;
   /**
-   * The index in the original data array before filtering null values.
-   * Used for matching with activeIndex from tooltip.
+   * Stable pre-filter index within the currently displayed data slice.
+   * Used for matching with activeIndex from tooltip and for BarStack clip-path indexing.
    */
   originalDataIndex: number;
 }
@@ -591,9 +591,9 @@ function BarRectangleWithActiveState(props: {
    *
    * With shared Tooltip, the activeDataKey is undefined.
    *
-   * We use entry.originalDataIndex to match against activeIndex because the index parameter
-   * is based on the filtered array, but activeIndex is based on the original data array.
-   * When there are null values in the data, these indices can differ.
+   * We use entry.originalDataIndex to match against activeIndex because the render index parameter
+   * is based on the filtered array, while activeIndex is based on the pre-filter displayed data slice.
+   * When entries are filtered out (for example null/zero-dimension bars), these indices can differ.
    */
   const isActive: boolean =
     activeBar &&
@@ -665,7 +665,7 @@ function BarRectangleWithActiveState(props: {
   if (shouldRenderInLayer) {
     return (
       <ZIndexLayer zIndex={DefaultZIndexes.activeBar}>
-        <BarStackClipLayer index={index}>{content}</BarStackClipLayer>
+        <BarStackClipLayer index={entry.originalDataIndex}>{content}</BarStackClipLayer>
       </ZIndexLayer>
     );
   }
@@ -723,7 +723,7 @@ function BarRectangles({
       {data.map((entry: BarRectangleItem, i: number) => {
         return (
           <BarStackClipLayer
-            index={i}
+            index={entry.originalDataIndex}
             // https://github.com/recharts/recharts/issues/5415
             key={`rectangle-${entry?.x}-${entry?.y}-${entry?.value}-${i}`}
             className="recharts-bar-rectangle"
@@ -1107,7 +1107,11 @@ export function computeBarRectangles({
         }
       }
 
-      if (x == null || y == null || width == null || height == null) {
+      /*
+       * Filter out 0-dimension rectangles early to avoid creating unnecessary component trees.
+       * BarStack clip-paths use originalDataIndex, so sparse filtered arrays remain index-stable.
+       */
+      if (x == null || y == null || width == null || height == null || width === 0 || height === 0) {
         return null;
       }
 
